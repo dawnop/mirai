@@ -44,8 +44,9 @@ def _setup_env(output_dir, ptxas_path=None):
 def _clear_inductor_cache():
     """Clear torchinductor cache so output_code.py is always regenerated."""
     import getpass
+    import tempfile
 
-    cache_dir = Path(f"/tmp/torchinductor_{getpass.getuser()}")
+    cache_dir = Path(tempfile.gettempdir()) / f"torchinductor_{getpass.getuser()}"
     if cache_dir.exists():
         shutil.rmtree(cache_dir)
         logger.info("Cleared inductor cache.")

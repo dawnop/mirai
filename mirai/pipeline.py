@@ -72,5 +72,5 @@ def process_kernel(model_path, kernel_name, version, output_root, env):
             try:
                 shutil.move(str(file_path), str(dest_dir / file_path.name))
                 logger.info("  -> Moved %s to %s", file_path.name, dest_dir)
-            except shutil.Error:
-                pass
+            except shutil.Error as e:
+                logger.warning("  -> Failed to move %s: %s", file_path.name, e)
