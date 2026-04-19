@@ -57,7 +57,7 @@ The pipeline spans two environments (typically on different machines):
 ### Install
 
 ```bash
-pip install -e .
+pip install mirai-compiler
 ```
 
 ## How It Works
