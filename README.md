@@ -1,6 +1,9 @@
-# Mirai
-
-A compiler that converts PyTorch models into deployable TensorFlow custom ops backed by Triton PTX kernels.
+<p align="center">
+  <img src="assets/logo.svg" alt="Mirai" width="320">
+</p>
+<p align="center">
+  A compiler that converts PyTorch models into deployable TensorFlow custom ops backed by Triton PTX kernels.
+</p>
 
 Mirai takes a decorated PyTorch function, runs `torch.compile` to generate optimized Triton kernels, extracts the PTX, and wraps everything into a TensorFlow custom op — with a single function call.
 
