@@ -46,7 +46,9 @@ empty_strided_p2p = torch._C._distributed_c10d._SymmetricMemory.empty_strided_p2
 #   inputs_t => clone
 # Graph fragment:
 #   %clone : [num_users=3] = call_function[target=torch.ops.aten.clone.default](args = (%permute,), kwargs = {memory_format: torch.contiguous_format})
-triton_poi_fused_clone_0 = async_compile.triton('triton_poi_fused_clone_0', '''
+triton_poi_fused_clone_0 = async_compile.triton(
+    "triton_poi_fused_clone_0",
+    """
 import triton
 import triton.language as tl
 from triton.compiler.compiler import AttrsDescriptor
@@ -72,7 +74,9 @@ def triton_poi_fused_clone_0(in_ptr0, out_ptr0, xnumel, XBLOCK : tl.constexpr):
     x0 = xindex
     tmp0 = tl.load(in_ptr0 + (x0), None)
     tl.store(out_ptr0 + (x0), tmp0, None)
-''', device_str='cuda')
+""",
+    device_str="cuda",
+)
 
 
 # kernel path: /tmp/torchinductor_hadoop-scale-pmf/uz/cuzcs76gl437efoes5lijhkiy5tzppipgbqhardbfconcr3lxbk3.py
@@ -83,7 +87,9 @@ def triton_poi_fused_clone_0(in_ptr0, out_ptr0, xnumel, XBLOCK : tl.constexpr):
 # Graph fragment:
 #   %clone : [num_users=3] = call_function[target=torch.ops.aten.clone.default](args = (%permute,), kwargs = {memory_format: torch.contiguous_format})
 #   %bmm : [num_users=2] = call_function[target=torch.ops.aten.bmm.default](args = (%clone, %primals_2), kwargs = {})
-triton_tem_fused_bmm_clone_1 = async_compile.triton('triton_tem_fused_bmm_clone_1', '''
+triton_tem_fused_bmm_clone_1 = async_compile.triton(
+    "triton_tem_fused_bmm_clone_1",
+    """
 import triton
 import triton.language as tl
 from triton.compiler.compiler import AttrsDescriptor
@@ -175,8 +181,19 @@ def triton_tem_fused_bmm_clone_1(arg_A, arg_B, out_ptr0):
     # inductor generates a suffix
     xindex = idx_n + 1536*idx_m + 7680000*idx_q
     tl.store(out_ptr0 + (tl.broadcast_to(xindex, acc.shape)), acc, mask)
-''', device_str='cuda')
-meta0 = {'GROUP_M': 8, 'EVEN_K': True, 'ALLOW_TF32': True, 'ACC_TYPE': 'tl.float32', 'B_PROLOGUE_CAST_TYPE': None, 'BLOCK_M': 128, 'BLOCK_N': 128, 'BLOCK_K': 32}
+""",
+    device_str="cuda",
+)
+meta0 = {
+    "GROUP_M": 8,
+    "EVEN_K": True,
+    "ALLOW_TF32": True,
+    "ACC_TYPE": "tl.float32",
+    "B_PROLOGUE_CAST_TYPE": None,
+    "BLOCK_M": 128,
+    "BLOCK_N": 128,
+    "BLOCK_K": 32,
+}
 
 
 # kernel path: /tmp/torchinductor_hadoop-scale-pmf/od/codyo7esvlyme5nhmpezopjgrpnkiultq4tx32r44zvfaaj7lc4s.py
@@ -192,7 +209,9 @@ meta0 = {'GROUP_M': 8, 'EVEN_K': True, 'ALLOW_TF32': True, 'ACC_TYPE': 'tl.float
 #   %mul : [num_users=1] = call_function[target=torch.ops.aten.mul.Tensor](args = (%add, %sigmoid), kwargs = {})
 #   %add_1 : [num_users=1] = call_function[target=torch.ops.aten.add.Tensor](args = (%bmm_1, %unsqueeze_1), kwargs = {})
 #   %mul_1 : [num_users=2] = call_function[target=torch.ops.aten.mul.Tensor](args = (%mul, %add_1), kwargs = {})
-triton_poi_fused_add_mul_silu_2 = async_compile.triton('triton_poi_fused_add_mul_silu_2', '''
+triton_poi_fused_add_mul_silu_2 = async_compile.triton(
+    "triton_poi_fused_add_mul_silu_2",
+    """
 import triton
 import triton.language as tl
 from triton.compiler.compiler import AttrsDescriptor
@@ -228,7 +247,9 @@ def triton_poi_fused_add_mul_silu_2(in_ptr0, in_ptr1, in_ptr2, in_ptr3, out_ptr0
     tmp7 = tmp5 + tmp6
     tmp8 = tmp4 * tmp7
     tl.store(out_ptr0 + (x3), tmp8, None)
-''', device_str='cuda')
+""",
+    device_str="cuda",
+)
 
 
 # kernel path: /tmp/torchinductor_hadoop-scale-pmf/lq/clq4adyix33wlnqqlwdoftu4tpznhn2etyur5azgy2un4j3pw62o.py
@@ -237,7 +258,9 @@ def triton_poi_fused_add_mul_silu_2(in_ptr0, in_ptr1, in_ptr2, in_ptr3, out_ptr0
 #   outputs_1 => bmm_2
 # Graph fragment:
 #   %bmm_2 : [num_users=1] = call_function[target=torch.ops.aten.bmm.default](args = (%mul_1, %primals_6), kwargs = {})
-triton_tem_fused_bmm_3 = async_compile.triton('triton_tem_fused_bmm_3', '''
+triton_tem_fused_bmm_3 = async_compile.triton(
+    "triton_tem_fused_bmm_3",
+    """
 import triton
 import triton.language as tl
 from triton.compiler.compiler import AttrsDescriptor
@@ -329,7 +352,9 @@ def triton_tem_fused_bmm_3(arg_A, arg_B, out_ptr0):
     # inductor generates a suffix
     xindex = idx_n + 512*idx_m + 2560000*idx_q
     tl.store(out_ptr0 + (tl.broadcast_to(xindex, acc.shape)), acc, mask)
-''', device_str='cuda')
+""",
+    device_str="cuda",
+)
 
 
 # kernel path: /tmp/torchinductor_hadoop-scale-pmf/k4/ck4ue7jbymrot33gosytvwibgqii33norxvs4a33jrgenzsdc5zc.py
@@ -338,7 +363,9 @@ def triton_tem_fused_bmm_3(arg_A, arg_B, out_ptr0):
 #   outputs_3 => clone_1
 # Graph fragment:
 #   %clone_1 : [num_users=1] = call_function[target=torch.ops.aten.clone.default](args = (%permute_1,), kwargs = {memory_format: torch.contiguous_format})
-triton_poi_fused_clone_4 = async_compile.triton('triton_poi_fused_clone_4', '''
+triton_poi_fused_clone_4 = async_compile.triton(
+    "triton_poi_fused_clone_4",
+    """
 import triton
 import triton.language as tl
 from triton.compiler.compiler import AttrsDescriptor
@@ -370,7 +397,9 @@ def triton_poi_fused_clone_4(in_ptr0, in_ptr1, out_ptr0, xnumel, XBLOCK : tl.con
     tmp1 = tl.load(in_ptr1 + (x3), None, eviction_policy='evict_last')
     tmp2 = tmp0 + tmp1
     tl.store(out_ptr0 + (x4), tmp2, None)
-''', device_str='cuda')
+""",
+    device_str="cuda",
+)
 
 
 # kernel path: /tmp/torchinductor_hadoop-scale-pmf/sq/csqtru4ageunwbeew22n5czrmkbpibznhfokbuocnx67xeljgvke.py
@@ -378,7 +407,9 @@ def triton_poi_fused_clone_4(in_ptr0, in_ptr1, out_ptr0, xnumel, XBLOCK : tl.con
 # Source node to ATen node mapping:
 # Graph fragment:
 #   %permute_5 : [num_users=1] = call_function[target=torch.ops.aten.permute.default](args = (%clone, [0, 2, 1]), kwargs = {})
-triton_poi_fused_transpose_5 = async_compile.triton('triton_poi_fused_transpose_5', '''
+triton_poi_fused_transpose_5 = async_compile.triton(
+    "triton_poi_fused_transpose_5",
+    """
 import triton
 import triton.language as tl
 from triton.compiler.compiler import AttrsDescriptor
@@ -407,11 +438,14 @@ def triton_poi_fused_transpose_5(in_ptr0, out_ptr0, xnumel, XBLOCK : tl.constexp
     x3 = xindex
     tmp0 = tl.load(in_ptr0 + (x0 + 512*x2 + 16384*x1), None)
     tl.store(out_ptr0 + (x3), tmp0, None)
-''', device_str='cuda')
+""",
+    device_str="cuda",
+)
 
 
 async_compile.wait(globals())
 del async_compile
+
 
 def call(args):
     primals_1, primals_2, primals_3, primals_4, primals_5, primals_6, primals_7 = args
@@ -433,19 +467,27 @@ def call(args):
         buf1 = empty_strided_cuda((32, 5000, 1536), (7680000, 1536, 1), torch.float32)
         # Topologically Sorted Source Nodes: [inputs_t, gates], Original ATen: [aten.clone, aten.bmm]
         stream0 = get_raw_stream(0)
-        triton_tem_fused_bmm_clone_1.run(buf0, primals_2, buf1, grid=torch._inductor.kernel.bmm.bmm_grid(32, 5000, 1536, meta0), stream=stream0)
+        triton_tem_fused_bmm_clone_1.run(
+            buf0, primals_2, buf1, grid=torch._inductor.kernel.bmm.bmm_grid(32, 5000, 1536, meta0), stream=stream0
+        )
         buf2 = empty_strided_cuda((32, 5000, 1536), (7680000, 1536, 1), torch.float32)
         # Topologically Sorted Source Nodes: [vals], Original ATen: [aten.bmm]
         stream0 = get_raw_stream(0)
-        triton_tem_fused_bmm_clone_1.run(buf0, primals_4, buf2, grid=torch._inductor.kernel.bmm.bmm_grid(32, 5000, 1536, meta0), stream=stream0)
+        triton_tem_fused_bmm_clone_1.run(
+            buf0, primals_4, buf2, grid=torch._inductor.kernel.bmm.bmm_grid(32, 5000, 1536, meta0), stream=stream0
+        )
         buf3 = empty_strided_cuda((32, 5000, 1536), (7680000, 1536, 1), torch.float32)
         # Topologically Sorted Source Nodes: [gates_1, gates_2, vals_1, outputs], Original ATen: [aten.add, aten.silu, aten.mul]
         stream0 = get_raw_stream(0)
-        triton_poi_fused_add_mul_silu_2.run(buf1, primals_3, buf2, primals_5, buf3, 245760000, grid=grid(245760000), stream=stream0)
+        triton_poi_fused_add_mul_silu_2.run(
+            buf1, primals_3, buf2, primals_5, buf3, 245760000, grid=grid(245760000), stream=stream0
+        )
         buf4 = empty_strided_cuda((32, 5000, 512), (2560000, 512, 1), torch.float32)
         # Topologically Sorted Source Nodes: [outputs_1], Original ATen: [aten.bmm]
         stream0 = get_raw_stream(0)
-        triton_tem_fused_bmm_3.run(buf3, primals_6, buf4, grid=torch._inductor.kernel.bmm.bmm_grid(32, 5000, 512, meta0), stream=stream0)
+        triton_tem_fused_bmm_3.run(
+            buf3, primals_6, buf4, grid=torch._inductor.kernel.bmm.bmm_grid(32, 5000, 512, meta0), stream=stream0
+        )
         buf5 = empty_strided_cuda((5000, 32, 512), (16384, 512, 1), torch.float32)
         # Topologically Sorted Source Nodes: [outputs_3], Original ATen: [aten.clone]
         stream0 = get_raw_stream(0)
@@ -457,23 +499,36 @@ def call(args):
         stream0 = get_raw_stream(0)
         triton_poi_fused_transpose_5.run(buf0, buf6, 81920000, grid=grid(81920000), stream=stream0)
         del buf0
-    return (buf5, primals_3, primals_5, buf1, buf2, reinterpret_tensor(buf3, (32, 1536, 5000), (7680000, 1, 1536), 0), reinterpret_tensor(primals_6, (32, 512, 1536), (786432, 1, 512), 0), buf6, reinterpret_tensor(primals_4, (32, 1536, 512), (786432, 1, 1536), 0), reinterpret_tensor(primals_2, (32, 1536, 512), (786432, 1, 1536), 0), )
+    return (
+        buf5,
+        primals_3,
+        primals_5,
+        buf1,
+        buf2,
+        reinterpret_tensor(buf3, (32, 1536, 5000), (7680000, 1, 1536), 0),
+        reinterpret_tensor(primals_6, (32, 512, 1536), (786432, 1, 512), 0),
+        buf6,
+        reinterpret_tensor(primals_4, (32, 1536, 512), (786432, 1, 1536), 0),
+        reinterpret_tensor(primals_2, (32, 1536, 512), (786432, 1, 1536), 0),
+    )
 
 
 def benchmark_compiled_module(times=10, repeat=10):
     from torch._dynamo.testing import rand_strided
     from torch._inductor.utils import print_performance
-    primals_1 = rand_strided((5000, 32, 512), (16384, 512, 1), device='cuda:0', dtype=torch.float32)
-    primals_2 = rand_strided((32, 512, 1536), (786432, 1536, 1), device='cuda:0', dtype=torch.float32)
-    primals_3 = rand_strided((32, 1536), (1536, 1), device='cuda:0', dtype=torch.float32)
-    primals_4 = rand_strided((32, 512, 1536), (786432, 1536, 1), device='cuda:0', dtype=torch.float32)
-    primals_5 = rand_strided((32, 1536), (1536, 1), device='cuda:0', dtype=torch.float32)
-    primals_6 = rand_strided((32, 1536, 512), (786432, 512, 1), device='cuda:0', dtype=torch.float32)
-    primals_7 = rand_strided((32, 512), (512, 1), device='cuda:0', dtype=torch.float32)
+
+    primals_1 = rand_strided((5000, 32, 512), (16384, 512, 1), device="cuda:0", dtype=torch.float32)
+    primals_2 = rand_strided((32, 512, 1536), (786432, 1536, 1), device="cuda:0", dtype=torch.float32)
+    primals_3 = rand_strided((32, 1536), (1536, 1), device="cuda:0", dtype=torch.float32)
+    primals_4 = rand_strided((32, 512, 1536), (786432, 1536, 1), device="cuda:0", dtype=torch.float32)
+    primals_5 = rand_strided((32, 1536), (1536, 1), device="cuda:0", dtype=torch.float32)
+    primals_6 = rand_strided((32, 1536, 512), (786432, 512, 1), device="cuda:0", dtype=torch.float32)
+    primals_7 = rand_strided((32, 512), (512, 1), device="cuda:0", dtype=torch.float32)
     fn = lambda: call([primals_1, primals_2, primals_3, primals_4, primals_5, primals_6, primals_7])
     return print_performance(fn, times=times, repeat=repeat)
 
 
 if __name__ == "__main__":
     from torch._inductor.wrapper_benchmark import compiled_module_main
-    compiled_module_main('None', benchmark_compiled_module)
+
+    compiled_module_main("None", benchmark_compiled_module)

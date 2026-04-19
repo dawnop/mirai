@@ -42,7 +42,6 @@ class TestModuleInjector:
         pytest.fail("No 'call' function found")
 
 
-
 class TestKernelRunnerHook:
     def test_intercepts_kernel_run(self, fwd_tree):
         tree = ModuleInjector("TestOp").visit(fwd_tree)
@@ -72,5 +71,3 @@ class TestMainStripper:
         assert "compiled_module_main" not in source
         # benchmark_compiled_module still exists (body rewritten)
         assert "benchmark_compiled_module" in source
-
-
