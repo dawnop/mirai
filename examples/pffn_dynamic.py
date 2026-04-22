@@ -39,7 +39,7 @@ def pffn(inputs, w_gate, b_gate, w_up, b_up, w_down, b_down):
     w_down:          [num_tokens, inner_dim, output_dim]
     b_down:          [num_tokens, output_dim]
     """
-    inputs_t = inputs.transpose(0, 1).contiguous()
+    inputs_t = inputs.transpose(0, 1).contiguous()  # TF side cannot represent non-contiguous tensors
 
     gates = torch.bmm(inputs_t, w_gate) + b_gate.unsqueeze(1)
     gates = F.silu(gates)
@@ -49,7 +49,7 @@ def pffn(inputs, w_gate, b_gate, w_up, b_up, w_down, b_down):
     outputs = gates * vals
     outputs = torch.bmm(outputs, w_down) + b_down.unsqueeze(1)
 
-    outputs = outputs.transpose(0, 1).contiguous()
+    outputs = outputs.transpose(0, 1)
     return outputs
 
 

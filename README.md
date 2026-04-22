@@ -15,12 +15,12 @@ import mirai
 
 @mirai.op(name="Pffn")
 def pffn(inputs, w_gate, b_gate, w_up, b_up, w_down, b_down):
-    inputs_t = inputs.transpose(0, 1).contiguous()
+    inputs_t = inputs.transpose(0, 1).contiguous()  # TF side cannot represent non-contiguous tensors
     gates = torch.bmm(inputs_t, w_gate) + b_gate.unsqueeze(1)
     gates = torch.nn.functional.silu(gates)
     vals = torch.bmm(inputs_t, w_up) + b_up.unsqueeze(1)
     outputs = torch.bmm(gates * vals, w_down) + b_down.unsqueeze(1)
-    return outputs.transpose(0, 1).contiguous()
+    return outputs.transpose(0, 1)
 
 # One call: torch.compile → PTX extraction → C++ codegen → build script
 mirai.build(pffn, sample_inputs=[inputs, w_gate, b_gate, w_up, b_up, w_down, b_down])
@@ -43,16 +43,34 @@ Build the op:
 cd generated && bash build.sh
 ```
 
+### Dynamic Shapes
+
+Use `dynamic=True` to generate shape-generic ops that accept variable batch sizes at runtime:
+
+```python
+mirai.build(pffn, sample_inputs=sample_inputs, dynamic=True)
+```
+
+A single compiled op then handles any batch size — no recompilation needed:
+
+```python
+# TF side: same op binary, different batch sizes
+out = pffn_op(inputs_2000, ...)   # bs=2000
+out = pffn_op(inputs_8000, ...)   # bs=8000
+```
+
+See [`examples/pffn_dynamic.py`](examples/pffn_dynamic.py) for a complete example.
+
 ## Requirements
 
 The pipeline spans two environments (typically on different machines):
 
-| Stage | Environment | Dependencies |
-|---|---|---|
-| PTX generation (Stage 1–3) | PyTorch 2.x + Triton + CUDA GPU with `ptxas` | `torch>=2.0`, `jinja2>=3.0`, Python >= 3.8 |
-| TF op compilation (build.sh) | TensorFlow + CUDA toolkit + g++ | `tensorflow`, CUDA headers |
+| Stage | Dependencies |
+|---|---|
+| Code generation (`mirai.build`) | PyTorch 2.x, CUDA|
+| Op compilation (`build.sh`) | TensorFlow 1.x, CUDA|
 
-`mirai.build()` / `python -m mirai` runs in the PyTorch environment, producing `generated/` artifacts. Copy them to the TF environment and run `bash build.sh` to compile into `.so`.
+Run `mirai.build()` in the PyTorch environment, copy `generated/` to the TF environment, then `bash build.sh`.
 
 ### Install
 
@@ -62,89 +80,42 @@ pip install mirai-compiler
 
 ## How It Works
 
+Mirai bridges two frameworks at the PTX level — it leverages PyTorch's compiler stack to produce hardware-optimized GPU kernels, then wraps them as native TensorFlow ops.
+
 ```
-@mirai.op decorated function
-        │
-        ▼
-  torch.compile + execute        ← Stage 1: generate Triton kernels
-        │
-        ▼
-  discover output_code.py        ← Stage 2: locate generated code
-        │
-        ▼
-  AST patch → run → save PTX     ← Stage 3: extract PTX and shapes
-        │
-        ▼
-  render C++ TF op               ← Stage 3: Jinja2 template → .cc
-        │
-        ▼
-  generate build.sh              ← Stage 4
-        │
-        ▼
-  generate TF API wrapper        ← Stage 5 (if backward exists)
+                        PyTorch environment                          TF environment
+               ┌─────────────────────────────────────────┐    ┌──────────────────────┐
+ @mirai.op  →  │ torch.compile  →  Triton  →  PTX/CUBIN  │ →  │  C++ TF custom op    │
+   function    │    (max_autotune, fwd + bwd)            │    │  (.so, Python API)   │
+               └─────────────────────────────────────────┘    └──────────────────────┘
 ```
 
-**Stage 1** uses `torch.compile` with `max_autotune` to find optimal kernel configurations. AUTOTUNE progress is shown during compilation.
+**Under the hood:**
 
-**Stage 3** patches inductor-generated code via AST transformers to intercept kernel launches and dump PTX binaries. The patched script runs in a subprocess with compile debug disabled.
+1. **Trace & Optimize** — `torch.compile` with `max_autotune` explores kernel configurations across the search space. Both forward and backward graphs are traced and optimized independently.
 
-**Stage 5** generates a Python API wrapper that connects forward outputs to backward inputs, mapping user parameter names to internal tensor names.
+2. **Intercept & Extract** — Mirai rewrites the inductor-generated Python via AST transformers, injecting hooks that capture PTX binaries and tensor metadata at each kernel launch site. The patched code runs in an isolated subprocess.
 
-## CLI
-
-For pre-existing `output_code.py` files (skips Stage 1):
-
-```bash
-python -m mirai \
-  --model-name Pffn \
-  --fwd-path /path/to/fwd_output_code.py \
-  --bwd-path /path/to/bwd_output_code.py \
-  --target ./generated \
-  --version tf32
-```
-
-## Logging
-
-All output uses the `mirai` logger with `[MIRAI INFO]` prefix:
-
-```python
-from mirai.log import setup_default_logging
-import logging
-
-setup_default_logging(logging.DEBUG)   # show everything including torch internals
-setup_default_logging(logging.INFO)    # default: MIRAI logs + AUTOTUNE tables
-setup_default_logging(logging.WARNING) # quiet mode
-```
+3. **Codegen** — Each captured kernel is rendered into a self-contained C++ TF op via Jinja2 templates, complete with shape inference, PTX loading, and CUDA launch logic. A Python API wrapper with `tf.custom_gradient` connects forward and backward ops seamlessly.
 
 ## Project Structure
 
 ```
 mirai/
-├── __init__.py        # Public API: op, module, build
-├── log.py             # Unified logging
-├── decorator.py       # @mirai.op — contiguous IO wrapper
 ├── build.py           # mirai.build() entry point
-├── __main__.py        # CLI entry point (python -m mirai)
-├── discovery.py       # Auto-discover output_code.py
-├── pipeline.py        # Per-kernel processing pipeline
-├── codegen/
-│   ├── transformer.py # AST transformers (ModuleInjector, KernelRunnerHook, MainStripper)
-│   ├── render.py      # AST → C++ TF op via Jinja2
-│   ├── builder.py     # Render build.sh
-│   └── api_render.py  # Render TF API wrapper
-└── templates/
-    ├── kernel.cc.tpl  # C++ TF custom op template
-    ├── build.sh.tpl   # Compilation script template
-    └── api.py.tpl     # Python API wrapper template
+├── decorator.py       # @mirai.op decorator
+├── pipeline.py        # Per-kernel: AST patch → PTX extraction → C++ render
+├── codegen/           # AST transformers, C++ / build.sh / API renderers
+└── templates/         # Jinja2 templates (kernel.cc, build.sh, api.py)
 examples/
-└── pffn.py            # PFFN SwiGLU end-to-end example
+├── pffn.py            # Static shape example
+└── pffn_dynamic.py    # Dynamic shape example
 ```
 
 ## Development
 
 ```bash
-uv sync --extra dev
-uv run black --check .
-uv run pytest tests/ --ignore=tests/test_e2e.py   # unit tests (no GPU)
-uv run pytest tests/test_e2e.py                    # e2e tests (GPU required)
+pip install -e ".[dev]"
+black --check mirai/ tests/ examples/
+pytest tests/ -v
 ```
