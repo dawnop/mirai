@@ -19,6 +19,7 @@ def main():
     parser.add_argument("--version", default="tf32", help="Version tag (default: tf32)")
     parser.add_argument("--params", nargs="+", default=None, help="User parameter names in order (for API generation)")
     parser.add_argument("--asset-base-prefix", default="", help="Base prefix for asset loading path in generated API")
+    parser.add_argument("--dynamic", action="store_true", help="Generate shape-generic TF ops for dynamic input shapes")
 
     args = parser.parse_args()
 
@@ -36,7 +37,7 @@ def main():
 
     # Forward (required)
     try:
-        process_kernel(args.fwd_path, fwd_name, args.version, target_path, env)
+        process_kernel(args.fwd_path, fwd_name, args.version, target_path, env, dynamic=args.dynamic)
         compiled_kernels.append(fwd_name)
     except Exception as e:
         logger.error("Forward pass failed: %s", e)
@@ -45,7 +46,7 @@ def main():
     # Backward (optional)
     if args.bwd_path:
         try:
-            process_kernel(args.bwd_path, bwd_name, args.version, target_path, env)
+            process_kernel(args.bwd_path, bwd_name, args.version, target_path, env, dynamic=args.dynamic)
             compiled_kernels.append(bwd_name)
         except Exception as e:
             logger.error("Backward pass failed: %s", e)

@@ -12,12 +12,12 @@ def _parse_io(source_code):
     """Parse a forward or backward output_code.py to extract input/output variable names.
 
     Returns:
-        (input_names, output_names) — lists of variable name strings.
+        (input_names, output_names, visitor) — lists of variable name strings + visitor.
     """
     tree = ast.parse(source_code)
     visitor = TensorIOVisitor()
     visitor.visit(tree)
-    return visitor.input_names, visitor.output_names
+    return visitor.input_names, visitor.output_names, visitor
 
 
 def render_api_file(fwd_source, bwd_source, op_name, user_param_names, output_path="./", asset_base_prefix=""):
@@ -36,10 +36,24 @@ def render_api_file(fwd_source, bwd_source, op_name, user_param_names, output_pa
     bwd_op_name = f"{op_name}Bwd"
 
     # Parse forward IO
-    fwd_input_names, fwd_output_names = _parse_io(fwd_source)
+    fwd_input_names, fwd_output_names, fwd_visitor = _parse_io(fwd_source)
 
     # Parse backward IO
-    bwd_input_names, bwd_output_names = _parse_io(bwd_source)
+    bwd_input_names, bwd_output_names, bwd_visitor = _parse_io(bwd_source)
+
+    # In dynamic mode, filter to tensor-only inputs/outputs
+    # (the TF op only receives tensors, not shape ints)
+    fwd_is_dynamic = bool(fwd_visitor.symbol_bindings)
+    if fwd_is_dynamic:
+        fwd_symbols = set(fwd_visitor.symbol_bindings.keys())
+        fwd_input_names = fwd_visitor.tensor_input_names
+        fwd_output_names = [n for n in fwd_output_names if n not in fwd_symbols]
+
+    bwd_is_dynamic = bool(bwd_visitor.symbol_bindings)
+    if bwd_is_dynamic:
+        bwd_symbols = set(bwd_visitor.symbol_bindings.keys())
+        bwd_input_names = bwd_visitor.tensor_input_names
+        bwd_output_names = [n for n in bwd_output_names if n not in bwd_symbols]
 
     # === Build mappings ===
 

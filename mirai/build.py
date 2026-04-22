@@ -13,6 +13,7 @@ from .pipeline import get_subprocess_env, process_kernel
 
 COMPILE_OPTIONS = {
     "max_autotune": True,
+    "max_autotune_gemm_backends": "TRITON",
     "coordinate_descent_tuning": True,
     "allow_buffer_reuse": False,
     "inplace_buffers": False,
@@ -52,11 +53,11 @@ def _clear_inductor_cache():
         logger.info("Cleared inductor cache.")
 
 
-def _compile_and_execute(func, sample_inputs):
+def _compile_and_execute(func, sample_inputs, dynamic=False):
     """Stage 1: torch.compile the function and execute to trigger triton code generation."""
-    logger.info("[Stage 1] Compiling with torch.compile and executing...")
+    logger.info("[Stage 1] Compiling with torch.compile (dynamic=%s) and executing...", dynamic)
 
-    compiled = torch.compile(func, dynamic=False, options=COMPILE_OPTIONS)
+    compiled = torch.compile(func, dynamic=dynamic, options=COMPILE_OPTIONS)
 
     # Forward pass
     output = compiled(*sample_inputs)
@@ -74,7 +75,7 @@ def _compile_and_execute(func, sample_inputs):
     logger.info("[Stage 1] Done. Triton code generated.")
 
 
-def build(func, sample_inputs, output_dir="./generated", version="tf32", ptxas=None):
+def build(func, sample_inputs, output_dir="./generated", version="tf32", ptxas=None, dynamic=False):
     """One-click build: from a @mirai.op decorated function to TF custom op artifacts.
 
     Args:
@@ -83,6 +84,7 @@ def build(func, sample_inputs, output_dir="./generated", version="tf32", ptxas=N
         output_dir: Directory for all generated artifacts.
         version: Version tag for PTX organization (default: "tf32").
         ptxas: Path to ptxas binary. If None, auto-detected.
+        dynamic: If True, generate shape-generic TF ops that accept variable input shapes.
     """
     setup_default_logging()
 
@@ -106,7 +108,7 @@ def build(func, sample_inputs, output_dir="./generated", version="tf32", ptxas=N
     # Clear inductor cache to force regeneration of output_code.py
     # Without this, cached fwd won't produce new output_code.py on re-runs
     _clear_inductor_cache()
-    _compile_and_execute(func, sample_inputs)
+    _compile_and_execute(func, sample_inputs, dynamic=dynamic)
 
     # === Stage 2: Discover output_code.py files ===
     logger.info("[Stage 2] Searching for generated output_code.py files...")
@@ -131,12 +133,12 @@ def build(func, sample_inputs, output_dir="./generated", version="tf32", ptxas=N
     bwd_name = f"{op_name}Bwd"
 
     # Forward (required)
-    process_kernel(fwd_path, fwd_name, version, output_dir, env)
+    process_kernel(fwd_path, fwd_name, version, output_dir, env, dynamic=dynamic)
     compiled_kernels.append(fwd_name)
 
     # Backward (optional)
     if bwd_path:
-        process_kernel(bwd_path, bwd_name, version, output_dir, env)
+        process_kernel(bwd_path, bwd_name, version, output_dir, env, dynamic=dynamic)
         compiled_kernels.append(bwd_name)
     else:
         logger.info("No backward output_code.py found, skipping backward pass.")

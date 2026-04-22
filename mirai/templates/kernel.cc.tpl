@@ -236,6 +236,13 @@ namespace tensorflow
         auto {{ input_arg.name }}_ptr = (CUdeviceptr)({{ input_arg.name }}.data());
         {% endfor %}
 
+        {% if dynamic -%}
+        // Read shape symbols from input tensor dimensions
+        {% for sym in symbol_info -%}
+        int64_t {{ sym.name }} = {{ sym.tensor_name }}.dim_size({{ sym.dim_idx }});
+        {% endfor %}
+        {%- endif %}
+
         {% for code in compute_codes %}
         {{ code }}
         {% endfor %}
@@ -253,10 +260,16 @@ namespace tensorflow
         {%- endfor %}
         .Attr("T: {float, half, bfloat16} = DT_FLOAT")
         .SetShapeFn([](shape_inference::InferenceContext* c) {
+            {% if dynamic -%}
+            {% for out in output_args %}
+            c->set_output({{loop.index0}}, c->UnknownShape());
+            {%- endfor %}
+            {% else -%}
             {% for out in output_args %}
             shape_inference::ShapeHandle {{out.name}} = c->MakeShape({ {{ out.shape | join(', ') }} });
             c->set_output({{loop.index0}}, {{out.name}});
             {%- endfor %}
+            {% endif %}
 
             return Status::OK();
         });

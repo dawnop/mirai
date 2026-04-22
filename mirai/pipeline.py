@@ -18,7 +18,7 @@ def get_subprocess_env(ptxas_path=None):
     return env
 
 
-def process_kernel(model_path, kernel_name, version, output_root, env):
+def process_kernel(model_path, kernel_name, version, output_root, env, dynamic=False):
     """Process a single kernel: patch triton code, extract PTX, generate C++.
 
     Args:
@@ -27,6 +27,7 @@ def process_kernel(model_path, kernel_name, version, output_root, env):
         version: Version tag for PTX organization (e.g., "tf32").
         output_root: Root output directory.
         env: Environment dict for subprocess calls.
+        dynamic: If True, generate shape-generic TF ops.
     """
     output_root = Path(output_root).resolve()
     output_root.mkdir(parents=True, exist_ok=True)
@@ -61,7 +62,7 @@ def process_kernel(model_path, kernel_name, version, output_root, env):
 
     # 3. Render C++ TF op (use original output_code.py, not the patched one)
     logger.info("[Stage 3] Rendering %s.cc...", kernel_name)
-    render_kernel_file(str(model_path), kernel_name, str(output_root))
+    render_kernel_file(str(model_path), kernel_name, str(output_root), dynamic=dynamic)
 
     # 4. Move PTX and meta files to version directory
     dest_dir = output_root / version / kernel_name
