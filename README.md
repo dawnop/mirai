@@ -15,7 +15,7 @@ import mirai
 
 @mirai.op(name="Pffn")
 def pffn(inputs, w_gate, b_gate, w_up, b_up, w_down, b_down):
-    inputs_t = inputs.transpose(0, 1).contiguous()  # TF side cannot represent non-contiguous tensors
+    inputs_t = inputs.transpose(0, 1)
     gates = torch.bmm(inputs_t, w_gate) + b_gate.unsqueeze(1)
     gates = torch.nn.functional.silu(gates)
     vals = torch.bmm(inputs_t, w_up) + b_up.unsqueeze(1)

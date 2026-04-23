@@ -2,6 +2,8 @@ import torch
 
 
 class EnforceContiguousGrad(torch.autograd.Function):
+    """Forward: identity. Backward: force gradient contiguous."""
+
     @staticmethod
     def forward(ctx, x):
         return x
@@ -29,7 +31,8 @@ def recursive_apply(data, func):
 def _force_contiguous_io(func):
     def wrapper(*args, **kwargs):
         def input_op(x):
-            return EnforceContiguousGrad.apply(x)
+            # Forward input: contiguous + backward gradient: contiguous
+            return EnforceContiguousGrad.apply(x.contiguous())
 
         new_args = recursive_apply(args, input_op)
         new_kwargs = recursive_apply(kwargs, input_op)
@@ -37,7 +40,8 @@ def _force_contiguous_io(func):
         outputs = func(*new_args, **new_kwargs)
 
         def output_op(x):
-            return x.contiguous()
+            # Forward output: contiguous + backward gradient (into this op): contiguous
+            return EnforceContiguousGrad.apply(x.contiguous())
 
         new_outputs = recursive_apply(outputs, output_op)
         return new_outputs
