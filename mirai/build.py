@@ -56,9 +56,12 @@ def _setup_env(output_dir, ptxas_path=None):
         get_features.cache_clear()
         # Log the effective ptxas path and PTX version after cache clear
         resolved_path, cuda_ver = _path_to_binary("ptxas")
-        logger.info("Triton ptxas: %s (CUDA %s, PTX ISA %s)",
-                    resolved_path, cuda_ver,
-                    get_features(type("_", (), {"ptx_version": None})()))
+        logger.info(
+            "Triton ptxas: %s (CUDA %s, PTX ISA %s)",
+            resolved_path,
+            cuda_ver,
+            get_features(type("_", (), {"ptx_version": None})()),
+        )
 
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
