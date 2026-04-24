@@ -37,6 +37,28 @@ def _setup_env(output_dir, ptxas_path=None):
 
     if ptxas_path:
         os.environ["TRITON_PTXAS_PATH"] = ptxas_path
+        # Triton caches the ptxas path and derived version info with
+        # @lru_cache.  Clear the entire chain so the env var takes
+        # effect even if Triton was already imported.
+        try:
+            from triton.backends.nvidia.compiler import (
+                _path_to_binary,
+                get_ptxas_version,
+                get_features,
+            )
+        except ImportError:
+            raise ImportError(
+                "Cannot import triton.backends.nvidia.compiler. "
+                "Triton is required for PTX generation — install it with: pip install triton"
+            )
+        _path_to_binary.cache_clear()
+        get_ptxas_version.cache_clear()
+        get_features.cache_clear()
+        # Log the effective ptxas path and PTX version after cache clear
+        resolved_path, cuda_ver = _path_to_binary("ptxas")
+        logger.info("Triton ptxas: %s (CUDA %s, PTX ISA %s)",
+                    resolved_path, cuda_ver,
+                    get_features(type("_", (), {"ptx_version": None})()))
 
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
