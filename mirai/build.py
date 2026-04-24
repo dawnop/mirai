@@ -125,7 +125,6 @@ def build(func, sample_inputs, output_dir="./generated", version="tf32", ptxas=N
     ptxas_path = ptxas or find_ptxas()
     if ptxas_path:
         ptxas_path = str(Path(ptxas_path).resolve())
-        logger.info("Using ptxas: %s", ptxas_path)
     else:
         logger.warning("ptxas not found. PTX extraction may fail.")
 

@@ -133,7 +133,8 @@ namespace tensorflow
         CUDA_CHECK(cuModuleLoadData(&mod, ptx.c_str()));
         CUDA_CHECK(cuModuleGetFunction(&cufunc, mod, config.func_name.c_str()));
 
-        auto device = ctx->device()->tensorflow_gpu_device_info()->gpu_id;
+        CUdevice device;
+        CUDA_CHECK(cuCtxGetDevice(&device));
         process_cufunc(cufunc, config.shared_memory, device);
 
         LOG(INFO) << "init kernel:" << module_name;

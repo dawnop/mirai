@@ -1,6 +1,7 @@
 """Shared pipeline utilities used by both build.py (programmatic API) and main.py (CLI)."""
 
 import os
+import re
 import sys
 import subprocess
 import shutil
@@ -16,6 +17,73 @@ def get_subprocess_env(ptxas_path=None):
     if ptxas_path:
         env["TRITON_PTXAS_PATH"] = ptxas_path
     return env
+
+
+def ptxas_cuda_version(ptxas_path):
+    """Return the CUDA version string (e.g. ``"12.2"``) from a ptxas binary.
+
+    Returns None if the version cannot be determined.
+    """
+    try:
+        out = subprocess.check_output([ptxas_path, "--version"], stderr=subprocess.STDOUT, text=True)
+        m = re.search(r"release (\d+\.\d+)", out)
+        return m.group(1) if m else None
+    except Exception:
+        return None
+
+
+def cuda_version_to_ptx_isa(cuda_version):
+    """Convert a CUDA version string to the expected PTX ISA version string.
+
+    >>> cuda_version_to_ptx_isa("12.2")
+    '8.2'
+    >>> cuda_version_to_ptx_isa("11.7")
+    '7.7'
+    """
+    major, minor = map(int, cuda_version.split("."))
+    return f"{major - 4}.{minor}"
+
+
+def read_ptx_isa_version(ptx_path):
+    """Read the ``.version X.Y`` directive from a PTX file.
+
+    Returns the version string (e.g. ``"8.2"``) or None.
+    """
+    with open(ptx_path, "r") as f:
+        for line in f:
+            m = re.match(r"\.version\s+(\S+)", line.strip())
+            if m:
+                return m.group(1)
+    return None
+
+
+def verify_ptx_version(ptxas_path, ptx_dir):
+    """Check that generated PTX files match the expected ISA version for *ptxas_path*.
+
+    Raises ``RuntimeError`` on mismatch.  Returns the verified version string
+    on success, or None if verification was skipped (no ptx files / cannot
+    determine version).
+    """
+    cuda_ver = ptxas_cuda_version(ptxas_path)
+    if cuda_ver is None:
+        return None
+
+    expected = cuda_version_to_ptx_isa(cuda_ver)
+
+    for ptx_file in Path(ptx_dir).glob("triton*.ptx"):
+        actual = read_ptx_isa_version(str(ptx_file))
+        if actual is None:
+            continue
+        if actual != expected:
+            raise RuntimeError(
+                f"PTX ISA version mismatch: generated .version {actual}, "
+                f"but ptxas {ptxas_path} expects .version {expected}. "
+                f"TRITON_PTXAS_PATH may not have taken effect — "
+                f"ensure mirai.build() is called with an absolute ptxas path."
+            )
+        return expected
+
+    return None
 
 
 def process_kernel(model_path, kernel_name, version, output_root, env, dynamic=False):
@@ -60,11 +128,18 @@ def process_kernel(model_path, kernel_name, version, output_root, env, dynamic=F
     if result.stderr:
         logger.debug("subprocess stderr:\n%s", result.stderr.rstrip())
 
-    # 3. Render C++ TF op (use original output_code.py, not the patched one)
+    # 3. Verify PTX ISA version matches the ptxas we configured
+    _ptxas = env.get("TRITON_PTXAS_PATH")
+    if _ptxas:
+        verified = verify_ptx_version(_ptxas, str(output_root))
+        if verified:
+            logger.info("[Stage 3] PTX ISA version: %s (matches ptxas)", verified)
+
+    # 4. Render C++ TF op (use original output_code.py, not the patched one)
     logger.info("[Stage 3] Rendering %s.cc...", kernel_name)
     render_kernel_file(str(model_path), kernel_name, str(output_root), dynamic=dynamic)
 
-    # 4. Move PTX and meta files to version directory
+    # 5. Move PTX and meta files to version directory
     dest_dir = output_root / version / kernel_name
     dest_dir.mkdir(parents=True, exist_ok=True)
 
