@@ -248,7 +248,6 @@ namespace tensorflow
         {{ code }}
         {% endfor %}
 
-        cudaStreamSynchronize(custream);
     }
 
     REGISTER_OP("{{op_name}}")
