@@ -121,9 +121,10 @@ def build(func, sample_inputs, output_dir="./generated", version="tf32", ptxas=N
     output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Find ptxas
+    # Find ptxas — resolve to absolute path so it survives cwd changes
     ptxas_path = ptxas or find_ptxas()
     if ptxas_path:
+        ptxas_path = str(Path(ptxas_path).resolve())
         logger.info("Using ptxas: %s", ptxas_path)
     else:
         logger.warning("ptxas not found. PTX extraction may fail.")
